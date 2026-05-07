@@ -50,11 +50,12 @@
 
             <!-- Webcam Wrapper with Dynamic Glow -->
             <div id="video-wrapper" class="w-full rounded-2xl overflow-hidden border-2 border-slate-700 shadow-[0_0_15px_rgba(0,0,0,0.5)] transition-all duration-500 relative bg-black aspect-video flex items-center justify-center">
-                <img src="{{ url_for('webcam_stream') }}" alt="Webcam Stream" id="video-stream" class="w-full h-full object-cover rounded-xl z-10">
-                <div class="absolute inset-0 flex items-center justify-center z-0 text-slate-600">
+                <video id="video-stream" autoplay playsinline class="w-full h-full object-cover rounded-xl z-10 hidden"></video>
+                <div id="video-placeholder" class="absolute inset-0 flex items-center justify-center z-0 text-slate-600">
                     <i class="fa-solid fa-video-slash text-4xl"></i>
                 </div>
             </div>
+            <canvas id="video-canvas" style="display:none;"></canvas>
 
             <div class="mt-8 w-full flex flex-col items-center">
                 <p class="text-slate-400 text-sm mb-2 uppercase tracking-widest">Current State</p>

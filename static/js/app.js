@@ -1,45 +1,107 @@
 // ==========================================
-// Emotion Polling & Dynamic UI Updates
+// WebRTC Camera & Emotion Processing
 // ==========================================
-setInterval(async () => {
-    if (typeof cameraEnabled !== 'undefined' && !cameraEnabled) return;
+let cameraStream = null;
+let captureInterval = null;
+
+async function startWebcam() {
     try {
-        let response = await fetch('/get_current_emotion');
-        let data = await response.json();
-        let emotionLabel = document.getElementById('emotion-label');
-        let emotionBadge = document.getElementById('emotion-badge');
-        let emotionIcon = document.getElementById('emotion-icon');
-        let videoWrapper = document.getElementById('video-wrapper');
+        let video = document.getElementById('video-stream');
+        cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = cameraStream;
+        video.style.display = "block";
+        document.getElementById('video-placeholder').style.display = "none";
         
-        let emotion = data.emotion;
-        emotionLabel.innerText = emotion;
-        
-        // Tailwind/Hex Colors & Icons Mapping based on Emotion
-        const theme = {
-            "Happy":    { color: "#eab308", icon: "fa-face-smile", glow: "rgba(234, 179, 8, 0.4)" },
-            "Sad":      { color: "#3b82f6", icon: "fa-face-sad-tear", glow: "rgba(59, 130, 246, 0.4)" },
-            "Angry":    { color: "#ef4444", icon: "fa-face-angry", glow: "rgba(239, 68, 68, 0.4)" },
-            "Fear":     { color: "#a855f7", icon: "fa-face-flushed", glow: "rgba(168, 85, 247, 0.4)" },
-            "Surprise": { color: "#f97316", icon: "fa-face-surprise", glow: "rgba(249, 115, 22, 0.4)" },
-            "Disgust":  { color: "#84cc16", icon: "fa-face-grin-tongue-squint", glow: "rgba(132, 204, 22, 0.4)" },
-            "Neutral":  { color: "#10b981", icon: "fa-face-meh", glow: "rgba(16, 185, 129, 0.2)" }
-        };
-
-        let currentTheme = theme[emotion] || theme["Neutral"];
-
-        // Update UI Colors
-        emotionIcon.className = `fa-solid ${currentTheme.icon} text-xl`;
-        emotionIcon.style.color = currentTheme.color;
-        emotionLabel.style.color = currentTheme.color;
-        
-        // Update Video Glow Effect
-        videoWrapper.style.borderColor = currentTheme.color;
-        videoWrapper.style.boxShadow = `0 0 25px ${currentTheme.glow}`;
-
+        // Start processing frames
+        startProcessing();
     } catch (err) {
-        console.error("Error fetching emotion:", err);
+        console.error("Error accessing webcam:", err);
+        let emotionLabel = document.getElementById('emotion-label');
+        emotionLabel.innerText = "Camera Denied";
     }
-}, 1500);
+}
+
+function stopWebcam() {
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+    }
+    if (captureInterval) {
+        clearInterval(captureInterval);
+        captureInterval = null;
+    }
+    document.getElementById('video-stream').style.display = "none";
+    document.getElementById('video-placeholder').style.display = "flex";
+}
+
+function startProcessing() {
+    let video = document.getElementById('video-stream');
+    let canvas = document.getElementById('video-canvas');
+    let ctx = canvas.getContext('2d');
+    
+    captureInterval = setInterval(async () => {
+        if (!cameraEnabled || !cameraStream) return;
+        
+        // Match canvas to video dimensions
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 480;
+        
+        if (canvas.width === 0) return; // Video not ready
+        
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        let imageData = canvas.toDataURL('image/jpeg', 0.8);
+        
+        try {
+            let response = await fetch('/process_frame', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: imageData })
+            });
+            let data = await response.json();
+            updateEmotionUI(data.emotion);
+        } catch (err) {
+            console.error("Error processing frame:", err);
+        }
+    }, 1500);
+}
+
+function updateEmotionUI(emotion) {
+    if (!emotion || emotion === "Error decoding image" || emotion === "No Face Detected") return;
+    
+    let emotionLabel = document.getElementById('emotion-label');
+    let emotionBadge = document.getElementById('emotion-badge');
+    let emotionIcon = document.getElementById('emotion-icon');
+    let videoWrapper = document.getElementById('video-wrapper');
+    
+    emotionLabel.innerText = emotion;
+    
+    // Tailwind/Hex Colors & Icons Mapping based on Emotion
+    const theme = {
+        "Happy":    { color: "#eab308", icon: "fa-face-smile", glow: "rgba(234, 179, 8, 0.4)" },
+        "Sad":      { color: "#3b82f6", icon: "fa-face-sad-tear", glow: "rgba(59, 130, 246, 0.4)" },
+        "Angry":    { color: "#ef4444", icon: "fa-face-angry", glow: "rgba(239, 68, 68, 0.4)" },
+        "Fear":     { color: "#a855f7", icon: "fa-face-flushed", glow: "rgba(168, 85, 247, 0.4)" },
+        "Surprise": { color: "#f97316", icon: "fa-face-surprise", glow: "rgba(249, 115, 22, 0.4)" },
+        "Disgust":  { color: "#84cc16", icon: "fa-face-grin-tongue-squint", glow: "rgba(132, 204, 22, 0.4)" },
+        "Neutral":  { color: "#10b981", icon: "fa-face-meh", glow: "rgba(16, 185, 129, 0.2)" }
+    };
+
+    let currentTheme = theme[emotion] || theme["Neutral"];
+
+    // Update UI Colors
+    emotionIcon.className = `fa-solid ${currentTheme.icon} text-xl`;
+    emotionIcon.style.color = currentTheme.color;
+    emotionLabel.style.color = currentTheme.color;
+    
+    // Update Video Glow Effect
+    videoWrapper.style.borderColor = currentTheme.color;
+    videoWrapper.style.boxShadow = `0 0 25px ${currentTheme.glow}`;
+}
+
+// Start webcam on load
+window.addEventListener('load', () => {
+    startWebcam();
+});
 
 // ==========================================
 // Chat Logic & UI Formatting
@@ -196,39 +258,33 @@ let cameraEnabled = true;
 async function toggleCamera() {
     cameraEnabled = !cameraEnabled;
     let icon = document.getElementById("camera-icon");
-    let videoStream = document.getElementById("video-stream");
     let emotionLabel = document.getElementById('emotion-label');
     let emotionIcon = document.getElementById('emotion-icon');
     let videoWrapper = document.getElementById('video-wrapper');
     
+    // We still call backend just to sync state if we want, but it's optional.
     try {
-        await fetch('/toggle_camera', {
+        fetch('/toggle_camera', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ state: cameraEnabled })
-        });
+        }).catch(e => console.error(e));
+    } catch(err) {}
+    
+    if (cameraEnabled) {
+        icon.className = "fa-solid fa-video text-emerald-400";
+        startWebcam();
+        emotionLabel.innerText = "Loading...";
+    } else {
+        icon.className = "fa-solid fa-video-slash text-red-400";
+        stopWebcam();
         
-        if (cameraEnabled) {
-            icon.className = "fa-solid fa-video text-emerald-400";
-            videoStream.style.display = "block";
-            // Force browser to reconnect to the stream
-            videoStream.src = "/webcam_stream?" + new Date().getTime(); 
-            emotionLabel.innerText = "Loading...";
-        } else {
-            icon.className = "fa-solid fa-video-slash text-red-400";
-            videoStream.style.display = "none";
-            
-            // Set UI to offline state
-            emotionLabel.innerText = "Camera Off";
-            emotionIcon.className = "fa-solid fa-power-off text-xl";
-            emotionIcon.style.color = "#64748b"; // slate-500
-            emotionLabel.style.color = "#64748b";
-            videoWrapper.style.borderColor = "#334155"; // slate-700
-            videoWrapper.style.boxShadow = "none";
-        }
-    } catch (err) {
-        console.error("Error toggling camera:", err);
-        // Revert state if failed
-        cameraEnabled = !cameraEnabled;
+        // Set UI to offline state
+        emotionLabel.innerText = "Camera Off";
+        emotionIcon.className = "fa-solid fa-power-off text-xl";
+        emotionIcon.style.color = "#64748b"; // slate-500
+        emotionLabel.style.color = "#64748b";
+        videoWrapper.style.borderColor = "#334155"; // slate-700
+        videoWrapper.style.boxShadow = "none";
     }
 }

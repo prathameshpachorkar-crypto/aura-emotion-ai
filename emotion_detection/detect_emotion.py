@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import tensorflow as tf
+import base64
 from config import MODEL_PATH, EMOTION_LABELS
 from emotion_detection.face_detector import detect_faces
 
@@ -34,42 +35,32 @@ def predict_emotion(face_img):
     max_index = int(np.argmax(predictions))
     return EMOTION_LABELS[max_index]
 
-def generate_frames():
-    """ Generator function for Flask video streaming. """
+def process_image_data(image_data):
+    """ Processes a base64 encoded image string from the frontend. """
     global LATEST_EMOTION, CAMERA_ACTIVE
     
-    while True:
-        if not CAMERA_ACTIVE:
-            import time
-            time.sleep(1)
-            continue
+    if not CAMERA_ACTIVE:
+        return LATEST_EMOTION
+
+    try:
+        # Decode base64 image
+        encoded_data = image_data.split(',')[1] if ',' in image_data else image_data
+        nparr = np.frombuffer(base64.b64decode(encoded_data), np.uint8)
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        
+        if frame is None:
+            return LATEST_EMOTION
+
+        faces, gray_frame = detect_faces(frame)
+        
+        if len(faces) > 0:
+            # Predict emotion for the first face found
+            (x, y, w, h) = faces[0]
+            roi_gray = gray_frame[y:y+h, x:x+w]
+            emotion = predict_emotion(roi_gray)
+            LATEST_EMOTION = emotion
             
-        camera = cv2.VideoCapture(0) # 0 is usually the default laptop webcam
-        while CAMERA_ACTIVE:
-            success, frame = camera.read()
-            if not success:
-                break
-                
-            faces, gray_frame = detect_faces(frame)
-            
-            for (x, y, w, h) in faces:
-                # Crop the face
-                roi_gray = gray_frame[y:y+h, x:x+w]
-                
-                # Predict
-                emotion = predict_emotion(roi_gray)
-                LATEST_EMOTION = emotion # Update global state for the chatbot
-                
-                # Draw rectangle and text
-                cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 255), 2)
-                cv2.putText(frame, emotion, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
-                
-            ret, buffer = cv2.imencode('.jpg', frame)
-            frame = buffer.tobytes()
-            
-            # Yield in multipart format for continuous video stream
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
-                   
-        if 'camera' in locals() and camera.isOpened():
-            camera.release()
+        return LATEST_EMOTION
+    except Exception as e:
+        print(f"Error processing image: {e}")
+        return LATEST_EMOTION

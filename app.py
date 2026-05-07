@@ -1,5 +1,4 @@
 from flask import Flask, render_template, request, jsonify, Response
-from emotion_detection.detect_emotion import generate_frames
 import emotion_detection.detect_emotion as ed
 from chatbot.gemini_chat import generate_emotion_response
 
@@ -10,10 +9,15 @@ def index():
     # Serves the main frontend page
     return render_template('index.html')
 
-@app.route('/webcam_stream')
-def webcam_stream():
-    # Flask streams the generator output to the frontend
-    return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+@app.route('/process_frame', methods=['POST'])
+def process_frame():
+    data = request.json
+    image_data = data.get("image")
+    if not image_data:
+        return jsonify({"error": "No image data"}), 400
+        
+    emotion = ed.process_image_data(image_data)
+    return jsonify({"emotion": emotion})
 
 @app.route('/get_current_emotion', methods=['GET'])
 def get_current_emotion():
