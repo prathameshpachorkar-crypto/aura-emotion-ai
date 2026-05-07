@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aura - Emotion AI</title>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Tailwind CSS (CDN for quick use) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Marked.js for Markdown -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    <!-- Tailwind Config for Custom Colors/Fonts -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Poppins', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-950 text-slate-100 h-screen w-screen flex items-center justify-center p-4 sm:p-8 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]">
+    
+    <!-- Main Glassmorphism Container -->
+    <div class="w-full max-w-7xl h-[90vh] bg-slate-900/80 backdrop-blur-2xl border border-slate-700/50 rounded-3xl shadow-2xl flex flex-col md:flex-row overflow-hidden">
+        
+        <!-- Left Side: Vision & Emotion (1/3 width) -->
+        <div class="w-full md:w-1/3 bg-slate-950/50 p-6 flex flex-col items-center border-b md:border-b-0 md:border-r border-slate-700/50">
+            <div class="w-full flex items-center justify-center space-x-3 mb-8 mt-2 relative">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                    <i class="fa-solid fa-eye text-white"></i>
+                </div>
+                <h2 class="text-xl font-semibold tracking-wide">Vision Engine</h2>
+                <button id="camera-toggle" onclick="toggleCamera()" title="Toggle Camera" class="absolute right-0 flex items-center justify-center w-10 h-10 rounded-full bg-slate-800 hover:bg-slate-700 border border-slate-600 transition-all shadow-md">
+                    <i id="camera-icon" class="fa-solid fa-video text-emerald-400"></i>
+                </button>
+            </div>
+
+            <!-- Webcam Wrapper with Dynamic Glow -->
+            <div id="video-wrapper" class="w-full rounded-2xl overflow-hidden border-2 border-slate-700 shadow-[0_0_15px_rgba(0,0,0,0.5)] transition-all duration-500 relative bg-black aspect-video flex items-center justify-center">
+                <img src="{{ url_for('webcam_stream') }}" alt="Webcam Stream" id="video-stream" class="w-full h-full object-cover rounded-xl z-10">
+                <div class="absolute inset-0 flex items-center justify-center z-0 text-slate-600">
+                    <i class="fa-solid fa-video-slash text-4xl"></i>
+                </div>
+            </div>
+
+            <div class="mt-8 w-full flex flex-col items-center">
+                <p class="text-slate-400 text-sm mb-2 uppercase tracking-widest">Current State</p>
+                <!-- Emotion Badge -->
+                <div id="emotion-badge" class="px-6 py-2 rounded-full bg-slate-800 border border-slate-600 shadow-lg flex items-center space-x-3 transition-colors duration-500">
+                    <i id="emotion-icon" class="fa-solid fa-face-meh text-xl"></i>
+                    <span id="emotion-label" class="text-lg font-medium tracking-wide">Loading...</span>
+                </div>
+                <!-- Get Suggestion Button -->
+                <button onclick="requestEmotionSuggestion()" class="mt-4 px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white text-sm font-medium rounded-full shadow-lg transition-all transform hover:scale-105 flex items-center space-x-2">
+                    <i class="fa-solid fa-lightbulb"></i>
+                    <span>Get Suggestion</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Right Side: Gemini Chat (2/3 width) -->
+        <div class="w-full md:w-2/3 flex flex-col h-full relative">
+            
+            <!-- Chat Header -->
+            <div class="px-8 py-5 border-b border-slate-700/50 flex justify-between items-center bg-slate-900/50">
+                <div class="flex items-center space-x-4">
+                    <div class="relative">
+                        <img src="https://api.dicebear.com/7.x/bottts/svg?seed=Aura&backgroundColor=1e293b" alt="AI Avatar" class="w-12 h-12 rounded-full border-2 border-indigo-500 shadow-lg">
+                        <span class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-slate-900 rounded-full"></span>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-semibold text-white">Aura AI</h2>
+                        <p class="text-xs text-indigo-400">Emotionally Intelligent Companion</p>
+                    </div>
+                </div>
+                
+                <!-- Voice Toggle Button -->
+                <button id="voice-toggle" onclick="toggleVoice()" class="flex items-center space-x-2 px-4 py-2 rounded-full bg-slate-800 hover:bg-slate-700 border border-slate-600 transition-all shadow-md text-sm font-medium">
+                    <i id="voice-icon" class="fa-solid fa-volume-high text-emerald-400"></i>
+                    <span id="voice-text">Voice On</span>
+                </button>
+            </div>
+
+            <!-- Chat Window -->
+            <div class="flex-1 overflow-y-auto p-6 md:p-8 flex flex-col gap-6 custom-scrollbar" id="chat-window">
+                <!-- Initial Bot Message -->
+                <div class="flex flex-col space-y-2 max-w-[85%] self-start">
+                    <div class="bg-slate-800 border border-slate-700 text-slate-200 p-4 rounded-2xl rounded-tl-none shadow-md markdown-body">
+                        Hello! I am Aura. I can see how you're feeling right now. How can I support you today?
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="p-6 bg-slate-900/80 border-t border-slate-700/50">
+                <div class="relative flex items-center w-full">
+                    <input type="text" id="user-input" placeholder="Type a message..." onkeypress="handleKeyPress(event)" autocomplete="off"
+                           class="w-full bg-slate-800 border border-slate-600 text-white placeholder-slate-400 text-sm rounded-full focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 block p-4 pl-6 pr-16 shadow-inner outline-none transition-all">
+                    <button onclick="sendMessage()" class="absolute right-2 p-3 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white rounded-full shadow-lg shadow-indigo-500/30 transition-all transform hover:scale-105 flex items-center justify-center">
+                        <i class="fa-solid fa-paper-plane text-sm"></i>
+                    </button>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
