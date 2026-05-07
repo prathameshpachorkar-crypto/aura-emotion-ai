@@ -22,7 +22,7 @@ IF NOT EXIST "C:\av\Scripts\python.exe" (
     C:\av\Scripts\python.exe -m pip install --upgrade pip
 
     echo.
-    echo [3/3] Installing all required dependencies (This will take a few minutes)...
+    echo [3/3] Installing all required dependencies - This will take a few minutes...
     
     :: Install base packages
     C:\av\Scripts\python.exe -m pip install Flask==3.0.3 opencv-python==4.10.0.84 pandas==2.2.3 numpy==2.1.3 scikit-learn==1.5.2 python-dotenv==1.0.1
